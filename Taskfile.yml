@@ -1,0 +1,44 @@
+# https://taskfile.dev
+
+version: '3'
+
+dotenv: ['.env']
+
+vars:
+  BINARYPATH: fileb://build/main.zip
+  INPUT: sample-data/profile/get.json
+  OUTPUT: sample-data/profile/get.out
+  HEADER: '"Content-type: application/json"'
+
+tasks:
+  default:
+    desc: Runs all tasks in order
+    cmds:
+      - echo "Compiling binaries"
+      - task: build
+      - echo "Sending zip to lambda"
+      - task: deploy
+      - echo "Invoking updated function"
+      - task: getProfile
+      - echo ""
+      - echo "All done! Hopefully that did what you wanted..."
+    silent: true
+
+  build:
+    desc: Build main.go and zip it
+    cmds:
+      - go build -ldflags="-s -w" -o build/main main.go
+      - cd build && zip main.zip main
+
+  deploy:
+    desc: Deployed zip file to lambda
+    cmds:
+      - aws lambda update-function-code --function-name $LAMBDA --zip-file {{.BINARYPATH}} | cat
+      - sleep 5s
+
+  getProfile:
+    desc: Invoke lambda and view output
+    cmds:
+      - echo "Invoking $LAMBDA via $APIGW"
+      - curl -X GET -H {{.HEADER}} -d @./{{.INPUT}} $APIGW -o {{.OUTPUT}}
+      - cat {{.OUTPUT}}
